@@ -53,3 +53,48 @@ if (Test-Path $nginxExe) {
     $NGINX_PATH = $null
 }
 
+# ============================================================
+#  Prepare HLS output directory
+# ============================================================
+Write-Step "Preparing HLS output directory"
+
+if (Test-Path $OUTPUT_DIR) {
+    # Clean old segments
+    $oldFiles = Get-ChildItem "$OUTPUT_DIR\*.ts" -ErrorAction SilentlyContinue
+    if ($oldFiles) {
+        Remove-Item "$OUTPUT_DIR\*.ts" -Force
+        Write-OK "Cleaned $($oldFiles.Count) old segment(s)"
+    } else {
+        Write-OK "No old segments to clean"
+    }
+} else {
+    New-Item -ItemType Directory -Path $OUTPUT_DIR -Force | Out-Null
+    Write-OK "Created $OUTPUT_DIR"
+}
+
+# ============================================================
+#  Start Nginx (if available)
+# ============================================================
+if ($NGINX_PATH) {
+    Write-Step "Starting Nginx"
+
+    # Check if already running
+    $existing = Get-Process nginx -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Warn "Nginx already running (PID $($existing.Id)) — reloading config"
+        & $nginxExe -s reload
+    } else {
+        Start-Process -FilePath $nginxExe -WorkingDirectory $NGINX_PATH -WindowStyle Normal
+        Start-Sleep -Seconds 1
+        $proc = Get-Process nginx -ErrorAction SilentlyContinue
+        if ($proc) {
+            Write-OK "Nginx started (PID $($proc.Id))"
+        } else {
+            Write-Err "Nginx failed to start. Check config with: $nginxExe -t"
+        }
+    }
+
+    Write-OK "Viewer page: http://localhost/viewer/"
+    Write-OK "Stream URL:  http://localhost/hls/stream.m3u8"
+}
+
