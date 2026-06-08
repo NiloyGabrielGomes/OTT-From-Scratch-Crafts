@@ -98,3 +98,46 @@ if ($NGINX_PATH) {
     Write-OK "Stream URL:  http://localhost/hls/stream.m3u8"
 }
 
+# ============================================================
+#  Start FFmpeg
+# ============================================================
+Write-Step "Starting FFmpeg (RTMP listener + HLS packager)"
+Write-Host ""
+Write-Host "  Listening on:  rtmp://0.0.0.0:${RTMP_PORT}/${RTMP_APP}/${RTMP_KEY}" -ForegroundColor White
+Write-Host "  Video:         libx264, $VIDEO_BITRATE, keyframe every 2s" -ForegroundColor White
+Write-Host "  Audio:         AAC, $AUDIO_BITRATE" -ForegroundColor White
+Write-Host "  HLS:           ${HLS_SEGMENT_TIME}s segments, ${HLS_LIST_SIZE} in playlist" -ForegroundColor White
+Write-Host "  Output:        $PLAYLIST" -ForegroundColor White
+Write-Host ""
+Write-Host "  Start OBS and stream to: rtmp://localhost:${RTMP_PORT}/${RTMP_APP}" -ForegroundColor Yellow
+Write-Host "  Press Ctrl+C to stop`n" -ForegroundColor Yellow
+
+# Build FFmpeg arguments
+$ffmpegArgs = @(
+    "-listen", "1",
+    "-i", $RTMP_URL,
+    # Video encoding
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-tune", "zerolatency",
+    "-b:v", $VIDEO_BITRATE,
+    "-maxrate", $VIDEO_BITRATE,
+    "-bufsize", ([int]($VIDEO_BITRATE -replace 'k','') * 2).ToString() + "k",
+    "-g", "60",
+    "-keyint_min", "60",
+    "-sc_threshold", "0",
+    # Audio encoding
+    "-c:a", "aac",
+    "-b:a", $AUDIO_BITRATE,
+    "-ar", "48000",
+    # HLS output
+    "-f", "hls",
+    "-hls_time", $HLS_SEGMENT_TIME.ToString(),
+    "-hls_list_size", $HLS_LIST_SIZE.ToString(),
+    "-hls_flags", "delete_segments",
+    "-hls_segment_filename", $SEGMENT_PATTERN,
+    $PLAYLIST
+)
+
+# Run FFmpeg (this blocks until Ctrl+C)
+& ffmpeg @ffmpegArgs
