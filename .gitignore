@@ -2,3 +2,6 @@
 .claude/skills
 skills-lock.json
 claude-contexts
+
+# HLS Files/Video files
+hls/

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Live Stream Viewer</title>
+      <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+      <style>
+          body {
+              margin: 0;
+              background: #111;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              font-family: system-ui, sans-serif;
+              color: #eee;
+          }
+          h1 { margin-bottom: 1rem; }
+          video {
+              max-width: 90vw;
+              max-height: 80vh;
+              border: 2px solid #333;
+              background: #000;
+          }
+          #status {
+              margin-top: 1rem;
+              padding: 0.5rem 1rem;
+              border-radius: 4px;
+              font-size: 0.9rem;
+          }
+          .live { background: #2d6a2e; }
+          .error { background: #6a2d2d; }
+          .loading { background: #6a6a2d; }
+      </style>
+  </head>
+  <body>
+      <h1>🔴 Live Stream</h1>
+      <video id="video" controls autoplay muted></video>
+      <div id="status" class="loading">Connecting...</div>
+
+      <script>
+          const video = document.getElementById('video');
+          const status = document.getElementById('status');
+          const streamUrl = '/hls/stream.m3u8';
+
+          function setStatus(text, className) {
+              status.textContent = text;
+              status.className = className;
+          }
+
+          if (Hls.isSupported()) {
+              const hls = new Hls({
+                  liveSyncDurationCount: 3,    // start after 3 segments buffered
+                  liveMaxLatencyDurationCount: 6,  // max 6 segments behind
+              });
+
+              hls.loadSource(streamUrl);
+              hls.attachMedia(video);
+
+              hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                  setStatus('LIVE', 'live');
+                  video.play().catch(() => {});
+              });
+
+              hls.on(Hls.Events.ERROR, (event, data) => {
+                  if (data.fatal) {
+                      setStatus('Stream error — is FFmpeg running?', 'error');
+                      console.error('HLS fatal error:', data);
+                  }
+              });
+
+              hls.on(Hls.Events.FRAG_LOADED, () => {
+                  setStatus('LIVE', 'live');
+              });
+
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+              video.src = streamUrl;
+              video.addEventListener('loadedmetadata', () => {
+                  setStatus('LIVE', 'live');
+                  video.play().catch(() => {});
+              });
+          } else {
+              setStatus('HLS not supported in this browser', 'error');
+          }
+
+          video.addEventListener('waiting', () => console.log('buffering'));
+          video.addEventListener('playing', () => console.log('playing'));
+          video.addEventListener('error', (e) => {
+              console.error('video error', e);
+              setStatus('Playback error', 'error');
+          });
+      </script>
+  </body>
+  </html>
