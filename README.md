@@ -68,6 +68,33 @@ Python's `http.server` is single-threaded — multiple viewers would queue up. N
 
 ### Setup
 
+#### Prerequisites
+
+- **Windows** (Source/(For testing purposes OBS), FFmpeg, Nginx all run natively)
+- [OBS Studio](https://obsproject.com)
+- [FFmpeg](https://www.gyan.dev/ffmpeg/builds/) — full build, add `bin` to PATH
+- [Nginx](https://nginx.org/en/download.html) — extract to `C:\nginx`
+
+#### Quick Start
+
+```
+1. Double-click  start-stream.bat
+   (or run .\start-stream.ps1 in PowerShell)
+
+2. Open OBS → Settings → Stream:
+     Service:  Custom...
+     Server:   rtmp://localhost:1935/live
+     Key:      stream
+
+3. Add a source in OBS (camera, display capture, media file)
+
+4. Click "Start Streaming" in OBS
+
+5. Open http://localhost/viewer/ in a browser
+
+6. To stop: run .\stop-stream.ps1 (or Ctrl+C the terminal)
+```
+
 #### Manual Start (step by step)
 
 ```powershell
