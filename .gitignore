@@ -1,0 +1,4 @@
+# Claude Files
+.claude/skills
+skills-lock.json
+claude-contexts
