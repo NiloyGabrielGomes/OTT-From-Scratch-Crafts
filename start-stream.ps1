@@ -103,31 +103,27 @@ if (Test-Path $nginxExe) {
 }
 
 # ============================================================
-#  Prepare HLS output directory
+#  Prepare HLS directories
 # ============================================================
-Write-Step "Preparing HLS output directory"
-
-if (Test-Path $OUTPUT_DIR) {
-    # Clean old segments
-    $oldFiles = Get-ChildItem "$OUTPUT_DIR\*.ts" -ErrorAction SilentlyContinue
-    if ($oldFiles) {
-        Remove-Item "$OUTPUT_DIR\*.ts" -Force
-        Write-OK "Cleaned $($oldFiles.Count) old segment(s)"
-    } else {
-        Write-OK "No old segments to clean"
+Write-Step "Preparing HLS directories"
+foreach ($stream in $STREAMS) {
+    $dir = "$PROJECT_DIR\hls\$($stream.Name)"
+    if (!(Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Write-OK "Created hls\$($stream.Name)"
     }
-} else {
-    New-Item -ItemType Directory -Path $OUTPUT_DIR -Force | Out-Null
-    Write-OK "Created $OUTPUT_DIR"
+    $old = Get-ChildItem "$dir\*.ts" -ErrorAction SilentlyContinue
+    if ($old) {
+        Remove-Item "$dir\*.ts" -Force
+        Write-OK "Cleaned $($old.Count) old segment(s) from hls\$($stream.Name)"
+    }
 }
 
 # ============================================================
-#  Start Nginx (if available)
+#  Start Nginx
 # ============================================================
 if ($NGINX_PATH) {
     Write-Step "Starting Nginx"
-
-    # Check if already running
     $existing = Get-Process nginx -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Warn "Nginx already running (PID $($existing.Id)) - reloading config"
@@ -139,13 +135,29 @@ if ($NGINX_PATH) {
         if ($proc) {
             Write-OK "Nginx started (PID $($proc.Id))"
         } else {
-            Write-Err "Nginx failed to start. Check config with: $nginxExe -t"
+            Write-Err "Nginx failed to start. Check config: $nginxExe -t"
         }
     }
-
-    Write-OK "Viewer page: http://localhost/viewer/"
-    Write-OK "Stream URL:  http://localhost/hls/stream.m3u8"
+    Write-OK "Viewer: http://${LAN_IP}/viewer/"
 }
+
+# ============================================================
+#  Start MediaMTX
+# ============================================================
+Write-Step "Starting MediaMTX (RTMP relay)"
+$mtxArgs = @("`"$MTX_CONFIG`"")
+$mtxProc = Start-Process -FilePath $mtxExe -ArgumentList $mtxArgs -WorkingDirectory $MEDIAMTX_PATH -PassThru -WindowStyle Normal
+Start-Sleep -Seconds 2
+if (!$mtxProc.HasExited) {
+    Write-OK "MediaMTX started (PID $($mtxProc.Id))"
+} else {
+    Write-Err "MediaMTX failed to start. Check config at $MTX_CONFIG"
+    exit 1
+}
+
+Write-Host ""
+Write-Host "  RTMP relay:   rtmp://0.0.0.0:1935/live/{name}" -ForegroundColor White
+Write-Host "  REST API:     http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor White
 
 # ============================================================
 #  Start FFmpeg
