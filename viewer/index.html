@@ -6,34 +6,70 @@
       <title>Live Stream Viewer</title>
       <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
       <style>
-          body {
-              margin: 0;
-              background: #111;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              font-family: system-ui, sans-serif;
-              color: #eee;
-          }
-          h1 { margin-bottom: 1rem; }
-          video {
-              max-width: 90vw;
-              max-height: 80vh;
-              border: 2px solid #333;
-              background: #000;
-          }
-          #status {
-              margin-top: 1rem;
-              padding: 0.5rem 1rem;
-              border-radius: 4px;
-              font-size: 0.9rem;
-          }
-          .live { background: #2d6a2e; }
-          .error { background: #6a2d2d; }
-          .loading { background: #6a6a2d; }
-      </style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            font-family: system-ui, sans-serif;
+            color: #eee;
+            padding: 2rem 1rem;
+        }
+        h1 { margin: 0 0 1.5rem 0; font-size: 1.4rem; }
+
+        /* Stream selector tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .tab {
+            padding: 0.5rem 1.2rem;
+            background: #222;
+            border: 2px solid #333;
+            border-radius: 6px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .tab:hover { border-color: #555; color: #ddd; }
+        .tab.active {
+            background: #2d6a2e;
+            border-color: #4a4;
+            color: #fff;
+        }
+
+        /* Video player */
+        video {
+            max-width: 90vw;
+            max-height: 70vh;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        /* Status bar */
+        #status {
+            margin-top: 1rem;
+            padding: 0.4rem 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .live    { background: #2d6a2e; }
+        .error   { background: #6a2d2d; }
+        .loading { background: #6a6a2d; }
+
+        /* Stream info */
+        .info {
+            margin-top: 0.8rem;
+            font-size: 0.8rem;
+            color: #666;
+        }
+    </style>
   </head>
   <body>
       <h1>🔴 Live Stream</h1>
