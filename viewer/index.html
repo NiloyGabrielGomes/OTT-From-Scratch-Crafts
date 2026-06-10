@@ -154,6 +154,38 @@
                 setStatus('HLS not supported in this browser', 'error');
             }
         }
-      </script>
-  </body>
-  </html>
+        // Fetch inputs.json and build tabs
+        async function init() {
+            try {
+                const resp = await fetch('/inputs.json');
+                const data = await resp.json();
+                streams = data.inputs || [];
+
+                if (!streams.length) {
+                    setStatus('No streams configured in inputs.json', 'error');
+                    return;
+                }
+
+                // Build tabs
+                streams.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className    = 'tab';
+                    btn.dataset.name = s.name;
+                    btn.textContent  = s.label || s.name;
+                    btn.addEventListener('click', () => switchStream(s.name));
+                    tabsDiv.appendChild(btn);
+                });
+
+                // Auto-select first stream
+                switchStream(streams[0].name);
+
+            } catch (e) {
+                setStatus('Failed to load /inputs.json — is Nginx running?', 'error');
+                console.error(e);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
