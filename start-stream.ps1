@@ -160,45 +160,66 @@ Write-Host "  RTMP relay:   rtmp://0.0.0.0:1935/live/{name}" -ForegroundColor Wh
 Write-Host "  REST API:     http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor White
 
 # ============================================================
-#  Start FFmpeg
+#  Start FFmpeg instances (one per stream)
 # ============================================================
-Write-Step "Starting FFmpeg (RTMP listener + HLS packager)"
-Write-Host ""
-Write-Host "  Listening on:  rtmp://0.0.0.0:${RTMP_PORT}/${RTMP_APP}/${RTMP_KEY}" -ForegroundColor White
-Write-Host "  Video:         libx264, $VIDEO_BITRATE, keyframe every 2s" -ForegroundColor White
-Write-Host "  Audio:         AAC, $AUDIO_BITRATE" -ForegroundColor White
-Write-Host "  HLS:           ${HLS_SEGMENT_TIME}s segments, ${HLS_LIST_SIZE} in playlist" -ForegroundColor White
-Write-Host "  Output:        $PLAYLIST" -ForegroundColor White
-Write-Host ""
-Write-Host "  Start OBS and stream to: rtmp://localhost:${RTMP_PORT}/${RTMP_APP}" -ForegroundColor Yellow
-Write-Host "  Press Ctrl+C to stop`n" -ForegroundColor Yellow
+Write-Step "Starting FFmpeg instances"
+foreach ($stream in $STREAMS) {
+    $name    = $stream.Name
+    $rtmpUrl = $stream.RtmpUrl
+    $bitrate = $stream.Bitrate
+    $bufsize = $stream.Bufsize
+    $outDir  = "$PROJECT_DIR\hls\$name"
+    $playlist = "$outDir\stream.m3u8"
+    $segPattern = "$outDir\stream%03d.ts"
 
-# Build FFmpeg arguments
-$ffmpegArgs = @(
-    "-listen", "1",
-    "-i", $RTMP_URL,
-    # Video encoding
-    "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-tune", "zerolatency",
-    "-b:v", $VIDEO_BITRATE,
-    "-maxrate", $VIDEO_BITRATE,
-    "-bufsize", $VIDEO_BUFSIZE,
-    "-g", "60",
-    "-keyint_min", "60",
-    "-sc_threshold", "0",
-    # Audio encoding
-    "-c:a", "aac",
-    "-b:a", $AUDIO_BITRATE,
-    "-ar", "48000",
-    # HLS output
-    "-f", "hls",
-    "-hls_time", $HLS_SEGMENT_TIME.ToString(),
-    "-hls_list_size", $HLS_LIST_SIZE.ToString(),
-    "-hls_flags", "delete_segments",
-    "-hls_segment_filename", $SEGMENT_PATTERN,
-    $PLAYLIST
-)
+    # FFmpeg connects to MediaMTX as a client (no -listen flag)
+    $ffmpegArgs = @(
+        "-i", $rtmpUrl,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-tune", "zerolatency",
+        "-b:v", $bitrate,
+        "-maxrate", $bitrate,
+        "-bufsize", $bufsize,
+        "-g", "60",
+        "-keyint_min", "60",
+        "-sc_threshold", "0",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-ar", "48000",
+        "-f", "hls",
+        "-hls_time", "4",
+        "-hls_list_size", "5",
+        "-hls_flags", "delete_segments",
+        "-hls_segment_filename", $segPattern,
+        $playlist
+    )
 
-# Run FFmpeg (this blocks until Ctrl+C)
-& ffmpeg @ffmpegArgs
+    # Start FFmpeg in a new window so each stream has its own terminal
+    $argString = $ffmpegArgs -join " "
+    Start-Process -FilePath "ffmpeg" -ArgumentList $ffmpegArgs -WindowStyle Normal
+    Write-OK "FFmpeg for $name -> hls\$name\stream.m3u8"
+}
+
+# ============================================================
+#  Print summary
+# ============================================================
+Write-Host ""
+Write-Host "========================================" -ForegroundColor White
+Write-Host "  Pipeline is running" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor White
+Write-Host ""
+Write-Host "  OBS streams (push to MediaMTX):" -ForegroundColor Yellow
+foreach ($stream in $STREAMS) {
+    Write-Host "    $($stream.Name):  rtmp://${LAN_IP}:1935/live/$($stream.Name)" -ForegroundColor Yellow
+}
+Write-Host ""
+Write-Host "  HLS output (served by Nginx):" -ForegroundColor Yellow
+foreach ($stream in $STREAMS) {
+    Write-Host "    $($stream.Name):  http://${LAN_IP}/hls/$($stream.Name)/stream.m3u8" -ForegroundColor Yellow
+}
+Write-Host ""
+Write-Host "  Stream status:  http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  Stop with:  .\stop-stream.ps1" -ForegroundColor Cyan
+Write-Host ""
