@@ -1,30 +1,53 @@
 # ============================================================
-#  OTT Streaming Pipeline - Startup Script
-#  Starts FFmpeg (RTMP listener + HLS packager) and Nginx
+#  OTT Streaming Pipeline - Startup Script (Multi-Input)
+#  Starts MediaMTX (relay) + FFmpeg (encode) + Nginx (serve)
+#
+#  Each component runs independently:
+#    MediaMTX - RTMP relay only, no encoding
+#    FFmpeg   - connects to MediaMTX as client, transcodes + HLS
+#    Nginx    - serves HLS files over HTTP
 # ============================================================
 
-# --- Configuration (edit as needed) ---
-$RTMP_PORT        = 1935
-$RTMP_APP         = "live"
-$RTMP_KEY         = "stream"
-$VIDEO_BITRATE    = "2500k"
-$AUDIO_BITRATE    = "128k"
-$HLS_SEGMENT_TIME = 4          # seconds per segment
-$HLS_LIST_SIZE    = 5          # segments to keep in playlist
-$OUTPUT_DIR       = "$PSScriptRoot\hls"
-$NGINX_PATH       = "C:\tools\nginx-1.30.2"  # adjust if Nginx is elsewhere
+# --- Configuration ---
+$MEDIAMTX_PATH = "C:\tools\mediamtx_v1.19.0_windows_amd64"
+$NGINX_PATH    = "C:\tools\nginx-1.30.2"
+$PROJECT_DIR   = "$PSScriptRoot"
+$MTX_CONFIG    = "$PROJECT_DIR\mediamtx.yml"
 
-# --- Derived ---
-$RTMP_URL        = "rtmp://0.0.0.0:${RTMP_PORT}/${RTMP_APP}/${RTMP_KEY}"
-$PLAYLIST        = "$OUTPUT_DIR\stream.m3u8"
-$SEGMENT_PATTERN = "$OUTPUT_DIR\stream%03d.ts"
-$VIDEO_BUFSIZE   = "{0}k" -f (([int]($VIDEO_BITRATE -replace '[^0-9]', '')) * 2)
+# Detect LAN IP for remote access URLs
+$LAN_IP = (Get-NetIPAddress -AddressFamily IPv4 |
+    Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
+    Select-Object -First 1 -ExpandProperty IPAddress)
+if (-not $LAN_IP) { $LAN_IP = "localhost" }
+
+# --- Stream definitions ---
+# Each stream: name, RTMP URL on MediaMTX, video bitrate, output directory
+$STREAMS = @(
+    @{
+        Name      = "cam1"
+        RtmpUrl   = "rtmp://localhost:1935/live/cam1"
+        Bitrate   = "2500k"
+        Bufsize   = "5000k"
+    },
+    @{
+        Name      = "cam2"
+        RtmpUrl   = "rtmp://localhost:1935/live/cam2"
+        Bitrate   = "1500k"
+        Bufsize   = "3000k"
+    },
+    @{
+        Name      = "screen"
+        RtmpUrl   = "rtmp://localhost:1935/live/screen"
+        Bitrate   = "4000k"
+        Bufsize   = "8000k"
+    }
+)
 
 # --- Colors ---
-function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-OK($msg) { Write-Host "   $msg" -ForegroundColor Green }
-function Write-Warn($msg) { Write-Host "   $msg" -ForegroundColor Yellow }
-function Write-Err($msg) { Write-Host "   $msg" -ForegroundColor Red }
+function Write-Step($msg)  { Write-Host "`n>> $msg" -ForegroundColor Cyan }
+function Write-OK($msg)    { Write-Host "   $msg" -ForegroundColor Green }
+function Write-Warn($msg)  { Write-Host "   $msg" -ForegroundColor Yellow }
+function Write-Err($msg)   { Write-Host "   $msg" -ForegroundColor Red }
 
 # ============================================================
 #  Pre-flight checks
