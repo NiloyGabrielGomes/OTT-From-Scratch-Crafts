@@ -53,8 +53,28 @@ function Write-Err($msg)   { Write-Host "   $msg" -ForegroundColor Red }
 #  Pre-flight checks
 # ============================================================
 Write-Host "`n========================================" -ForegroundColor White
-Write-Host "  OTT Streaming Pipeline - Startup" -ForegroundColor Cyan
+Write-Host "  OTT Streaming Pipeline - Multi-Input" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor White
+
+# Check MediaMTX
+Write-Step "Checking MediaMTX"
+$mtxExe = "$MEDIAMTX_PATH\mediamtx.exe"
+if (Test-Path $mtxExe) {
+    Write-OK "Found at $MEDIAMTX_PATH"
+} else {
+    Write-Err "MediaMTX not found at $MEDIAMTX_PATH"
+    Write-Err "Download from https://github.com/bluenviron/mediamtx/releases"
+    exit 1
+}
+
+# Check project config
+Write-Step "Checking MediaMTX config"
+if (Test-Path $MTX_CONFIG) {
+    Write-OK "Using project config: $MTX_CONFIG"
+} else {
+    Write-Err "Config not found at $MTX_CONFIG"
+    exit 1
+}
 
 # Check FFmpeg
 Write-Step "Checking FFmpeg"
@@ -71,17 +91,14 @@ Write-Step "Checking Nginx"
 $nginxExe = "$NGINX_PATH\nginx.exe"
 if (Test-Path $nginxExe) {
     Write-OK "Found at $NGINX_PATH"
-    $projectNginxConf = Join-Path $PSScriptRoot "nginx.conf"
-    $activeNginxConf = Join-Path $NGINX_PATH "conf\nginx.conf"
+    $projectNginxConf = "$PROJECT_DIR\nginx.conf"
+    $activeNginxConf  = "$NGINX_PATH\conf\nginx.conf"
     if (Test-Path $projectNginxConf) {
         Copy-Item $projectNginxConf $activeNginxConf -Force
-        Write-OK "Deployed project nginx.conf to $activeNginxConf"
-    } else {
-        Write-Warn "Project nginx.conf not found at $projectNginxConf"
+        Write-OK "Deployed project nginx.conf"
     }
 } else {
-    Write-Warn "Nginx not found at $NGINX_PATH - skipping Nginx startup."
-    Write-Warn "Set `$NGINX_PATH in this script or install Nginx from https://nginx.org/en/download.html"
+    Write-Warn "Nginx not found at $NGINX_PATH - HLS will not be served"
     $NGINX_PATH = $null
 }
 
