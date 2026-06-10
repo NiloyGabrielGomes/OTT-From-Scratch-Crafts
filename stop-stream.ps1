@@ -1,36 +1,40 @@
 # ============================================================
-#  OTT Streaming Pipeline - Stop Script
+#  OTT Streaming Pipeline - Stop Script (Multi-Input)
 # ============================================================
 
-$NGINX_PATH = "C:\tools\nginx-1.30.2"
-
-function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-OK($msg) { Write-Host "   $msg" -ForegroundColor Green }
-function Write-Warn($msg) { Write-Host "   $msg" -ForegroundColor Yellow }
+function Write-Step($msg)  { Write-Host "`n>> $msg" -ForegroundColor Cyan }
+function Write-OK($msg)    { Write-Host "   $msg" -ForegroundColor Green }
+function Write-Warn($msg)  { Write-Host "   $msg" -ForegroundColor Yellow }
 
 Write-Host "`n========================================" -ForegroundColor White
 Write-Host "  OTT Streaming Pipeline - Shutdown" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor White
 
-# Stop FFmpeg
+# Stop FFmpeg (all instances)
 Write-Step "Stopping FFmpeg"
 $ffmpeg = Get-Process ffmpeg -ErrorAction SilentlyContinue
 if ($ffmpeg) {
-    Stop-Process -Id $ffmpeg.Id -Force
-    Write-OK "FFmpeg stopped (was PID $($ffmpeg.Id))"
+    Stop-Process -Name ffmpeg -Force
+    Write-OK "FFmpeg stopped ($($ffmpeg.Count) process(es))"
 } else {
     Write-Warn "FFmpeg not running"
+}
+
+# Stop MediaMTX
+Write-Step "Stopping MediaMTX"
+$mtxm = Get-Process mediamtx -ErrorAction SilentlyContinue
+if ($mtxm) {
+    Stop-Process -Name mediamtx -Force
+    Write-OK "MediaMTX stopped (PID $($mtxm.Id))"
+} else {
+    Write-Warn "MediaMTX not running"
 }
 
 # Stop Nginx
 Write-Step "Stopping Nginx"
 $nginx = Get-Process nginx -ErrorAction SilentlyContinue
 if ($nginx) {
-    $nginxExe = Join-Path $NGINX_PATH "nginx.exe"
-    if (Test-Path $nginxExe) {
-        & $nginxExe -s stop 2>$null
-    }
-
+    & "C:\tools\nginx-1.30.2\nginx.exe" -s stop 2>$null
     Start-Sleep -Seconds 1
     $still = Get-Process nginx -ErrorAction SilentlyContinue
     if ($still) {
@@ -43,4 +47,5 @@ if ($nginx) {
     Write-Warn "Nginx not running"
 }
 
-Write-Host "`nPipeline shut down.`n" -ForegroundColor Green
+Write-Host "`nPipeline shut down." -ForegroundColor Green
+Write-Host ""
