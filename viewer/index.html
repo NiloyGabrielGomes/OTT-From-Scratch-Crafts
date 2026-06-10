@@ -72,9 +72,11 @@
     </style>
   </head>
   <body>
-      <h1>🔴 Live Stream</h1>
-      <video id="video" controls autoplay muted></video>
-      <div id="status" class="loading">Connecting...</div>
+      <h1>&#128308; Live Stream</h1>
+    <div class="tabs" id="tabs"></div>
+    <video id="video" controls autoplay muted></video>
+    <div id="status" class="loading">Loading streams...</div>
+    <div class="info" id="info"></div>
 
       <script>
           const video = document.getElementById('video');
