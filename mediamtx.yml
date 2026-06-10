@@ -1,33 +1,36 @@
 # ============================================================
-#  MediaMTX Configuration - RTMP relay only
+#  MediaMTX configuration — RTMP relay only
+#  Receives RTMP from OBS, re-publishes for FFmpeg to consume
 #
-#  OBS publishes to MediaMTX.
-#  FFmpeg reads from MediaMTX and writes HLS.
-#  Nginx serves HLS separately.
+#  runOnReady calls ffmpeg-start.bat when OBS publishes.
+#  FFmpeg settings live in inputs.json (single source of truth).
 # ============================================================
 
-# --- Logging ---
-logDestinations: [stdout]
-logLevel: info
-
-# --- Protocols ---
+# --- Server protocols ---
 rtmp: yes
 rtmpAddress: :1935
-
-# Everything else disabled - not our job
 hls: no
 rtsp: no
 webrtc: no
 srt: no
 
-# REST API for monitoring active streams
+# --- REST API ---
 api: yes
 apiAddress: :9999
 
 # --- Paths ---
+# runOnReady fires when OBS starts publishing to a path.
+# Terminated (FFmpeg killed) when OBS disconnects.
+
 paths:
   live/cam1:
+    runOnReady: cmd /c "E:\Streaming Service Project\OTT-From-Scratch-Crafts\ffmpeg\ffmpeg-start.bat" cam1
+    runOnReadyRestart: yes
 
   live/cam2:
+    runOnReady: cmd /c "E:\Streaming Service Project\OTT-From-Scratch-Crafts\ffmpeg\ffmpeg-start.bat" cam2
+    runOnReadyRestart: yes
 
   live/screen:
+    runOnReady: cmd /c "E:\Streaming Service Project\OTT-From-Scratch-Crafts\ffmpeg\ffmpeg-start.bat" screen
+    runOnReadyRestart: yes
