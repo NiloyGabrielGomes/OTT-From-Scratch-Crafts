@@ -1,0 +1,33 @@
+# ============================================================
+#  MediaMTX Configuration - RTMP relay only
+#
+#  OBS publishes to MediaMTX.
+#  FFmpeg reads from MediaMTX and writes HLS.
+#  Nginx serves HLS separately.
+# ============================================================
+
+# --- Logging ---
+logDestinations: [stdout]
+logLevel: info
+
+# --- Protocols ---
+rtmp: yes
+rtmpAddress: :1935
+
+# Everything else disabled - not our job
+hls: no
+rtsp: no
+webrtc: no
+srt: no
+
+# REST API for monitoring active streams
+api: yes
+apiAddress: :9999
+
+# --- Paths ---
+paths:
+  live/cam1:
+
+  live/cam2:
+
+  live/screen:

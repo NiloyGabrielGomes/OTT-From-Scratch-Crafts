@@ -5,3 +5,7 @@ claude-contexts
 
 # HLS Files/Video files
 hls/
+
+# TLS Certificates
+*.crt
+*.key
