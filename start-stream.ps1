@@ -80,7 +80,7 @@ Write-Step "Checking Nginx"
 $nginxExe = "$NGINX_PATH\nginx.exe"
 if (Test-Path $nginxExe) {
     Write-OK "Found at $NGINX_PATH"
-    $projectNginxConf = "$PROJECT_DIR\nginx.conf"
+    $projectNginxConf = "$PROJECT_DIR\config\nginx.conf"
     $activeNginxConf  = "$NGINX_PATH\conf\nginx.conf"
     if (Test-Path $projectNginxConf) {
         Copy-Item $projectNginxConf $activeNginxConf -Force
