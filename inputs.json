@@ -1,0 +1,26 @@
+{
+  "rtmpServer": "rtmp://localhost:1935/live",
+  "inputs": [
+    {
+      "name": "cam1",
+      "label": "Camera 1",
+      "videoBitrate": "2500k",
+      "bufsize": "5000k",
+      "audioBitrate": "128k"
+    },
+    {
+      "name": "cam2",
+      "label": "Camera 2",
+      "videoBitrate": "1500k",
+      "bufsize": "3000k",
+      "audioBitrate": "128k"
+    },
+    {
+      "name": "screen",
+      "label": "Screen Share",
+      "videoBitrate": "4000k",
+      "bufsize": "8000k",
+      "audioBitrate": "128k"
+    }
+  ]
+}

@@ -20,28 +20,25 @@ $LAN_IP = (Get-NetIPAddress -AddressFamily IPv4 |
     Select-Object -First 1 -ExpandProperty IPAddress)
 if (-not $LAN_IP) { $LAN_IP = "localhost" }
 
-# --- Stream definitions ---
-# Each stream: name, RTMP URL on MediaMTX, video bitrate, output directory
-$STREAMS = @(
-    @{
-        Name      = "cam1"
-        RtmpUrl   = "rtmp://localhost:1935/live/cam1"
-        Bitrate   = "2500k"
-        Bufsize   = "5000k"
-    },
-    @{
-        Name      = "cam2"
-        RtmpUrl   = "rtmp://localhost:1935/live/cam2"
-        Bitrate   = "1500k"
-        Bufsize   = "3000k"
-    },
-    @{
-        Name      = "screen"
-        RtmpUrl   = "rtmp://localhost:1935/live/screen"
-        Bitrate   = "4000k"
-        Bufsize   = "8000k"
+# --- Load stream definitions from inputs.json ---
+$INPUTS_FILE = "$PROJECT_DIR\inputs.json"
+if (!(Test-Path $INPUTS_FILE)) {
+    Write-Err "inputs.json not found at $INPUTS_FILE"
+    exit 1
+}
+$inputsConfig = Get-Content $INPUTS_FILE -Raw | ConvertFrom-Json
+$rtmpBase = $inputsConfig.rtmpServer
+
+$STREAMS = @()
+foreach ($input in $inputsConfig.inputs) {
+    $STREAMS += @{
+        Name      = $input.name
+        RtmpUrl   = "$rtmpBase/$($input.name)"
+        Bitrate   = $input.videoBitrate
+        Bufsize   = $input.bufsize
+        AudioBitrate = $input.audioBitrate
     }
-)
+}
 
 # --- Colors ---
 function Write-Step($msg)  { Write-Host "`n>> $msg" -ForegroundColor Cyan }
@@ -168,6 +165,7 @@ foreach ($stream in $STREAMS) {
     $rtmpUrl = $stream.RtmpUrl
     $bitrate = $stream.Bitrate
     $bufsize = $stream.Bufsize
+    $audioBr = $stream.AudioBitrate
     $outDir  = "$PROJECT_DIR\hls\$name"
     $playlist = "$outDir\stream.m3u8"
     $segPattern = "$outDir\stream%03d.ts"
@@ -185,7 +183,7 @@ foreach ($stream in $STREAMS) {
         "-keyint_min", "60",
         "-sc_threshold", "0",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", $audioBr,
         "-ar", "48000",
         "-f", "hls",
         "-hls_time", "4",
