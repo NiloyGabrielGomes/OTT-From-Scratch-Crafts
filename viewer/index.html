@@ -79,56 +79,81 @@
     <div class="info" id="info"></div>
 
       <script>
-          const video = document.getElementById('video');
-          const status = document.getElementById('status');
-          const streamUrl = '/hls/stream.m3u8';
+          const video   = document.getElementById('video');
+        const status  = document.getElementById('status');
+        const tabsDiv = document.getElementById('tabs');
+        const infoDiv = document.getElementById('info');
 
-          function setStatus(text, className) {
-              status.textContent = text;
-              status.className = className;
-          }
+        let hls      = null;
+        let streams  = [];
+        let active   = null;
 
-          if (Hls.isSupported()) {
-              const hls = new Hls({
-                  liveSyncDurationCount: 3,    // start after 3 segments buffered
-                  liveMaxLatencyDurationCount: 6,  // max 6 segments behind
-              });
+        function setStatus(text, cls) {
+            status.textContent = text;
+            status.className   = cls;
+        }
 
-              hls.loadSource(streamUrl);
-              hls.attachMedia(video);
+        // Build stream URL from name: /hls/{name}/stream.m3u8
+        function streamUrl(name) {
+            return `/hls/${name}/stream.m3u8`;
+        }
 
-              hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                  setStatus('LIVE', 'live');
-                  video.play().catch(() => {});
-              });
+        // Switch to a stream
+        function switchStream(name) {
+            if (active === name) return;
+            active = name;
 
-              hls.on(Hls.Events.ERROR, (event, data) => {
-                  if (data.fatal) {
-                      setStatus('Stream error — is FFmpeg running?', 'error');
-                      console.error('HLS fatal error:', data);
-                  }
-              });
+            // Update tab highlight
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.name === name);
+            });
 
-              hls.on(Hls.Events.FRAG_LOADED, () => {
-                  setStatus('LIVE', 'live');
-              });
+            // Show stream info
+            const s = streams.find(x => x.name === name);
+            infoDiv.textContent = s
+                ? `${s.label} — video: ${s.videoBitrate}, audio: ${s.audioBitrate}`
+                : '';
 
-          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-              video.src = streamUrl;
-              video.addEventListener('loadedmetadata', () => {
-                  setStatus('LIVE', 'live');
-                  video.play().catch(() => {});
-              });
-          } else {
-              setStatus('HLS not supported in this browser', 'error');
-          }
+            // Destroy old HLS instance
+            if (hls) { hls.destroy(); hls = null; }
 
-          video.addEventListener('waiting', () => console.log('buffering'));
-          video.addEventListener('playing', () => console.log('playing'));
-          video.addEventListener('error', (e) => {
-              console.error('video error', e);
-              setStatus('Playback error', 'error');
-          });
+            const url = streamUrl(name);
+            setStatus('Connecting...', 'loading');
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    liveSyncDurationCount: 3,
+                    liveMaxLatencyDurationCount: 6,
+                });
+                hls.loadSource(url);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    setStatus('LIVE', 'live');
+                    video.play().catch(() => {});
+                });
+
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    if (data.fatal) {
+                        setStatus('Stream offline — is OBS streaming?', 'error');
+                        console.error('HLS fatal error:', data);
+                    }
+                });
+
+                hls.on(Hls.Events.FRAG_LOADED, () => {
+                    setStatus('LIVE', 'live');
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    setStatus('LIVE', 'live');
+                    video.play().catch(() => {});
+                });
+            } else {
+                setStatus('HLS not supported in this browser', 'error');
+            }
+        }
       </script>
   </body>
   </html>
