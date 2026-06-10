@@ -1,10 +1,13 @@
 # ============================================================
 #  OTT Streaming Pipeline - Startup Script (Multi-Input)
-#  Starts MediaMTX (relay) + FFmpeg (encode) + Nginx (serve)
+#  Starts MediaMTX (relay) + Nginx (serve)
+#
+#  FFmpeg is NOT started here — MediaMTX calls ffmpeg-start.ps1
+#  automatically when OBS begins publishing (via runOnPublish).
 #
 #  Each component runs independently:
 #    MediaMTX - RTMP relay only, no encoding
-#    FFmpeg   - connects to MediaMTX as client, transcodes + HLS
+#    FFmpeg   - launched by MediaMTX per stream, reads inputs.json
 #    Nginx    - serves HLS files over HTTP
 # ============================================================
 
@@ -20,25 +23,14 @@ $LAN_IP = (Get-NetIPAddress -AddressFamily IPv4 |
     Select-Object -First 1 -ExpandProperty IPAddress)
 if (-not $LAN_IP) { $LAN_IP = "localhost" }
 
-# --- Load stream definitions from inputs.json ---
+# --- Load stream list from inputs.json (for summary display) ---
 $INPUTS_FILE = "$PROJECT_DIR\inputs.json"
 if (!(Test-Path $INPUTS_FILE)) {
     Write-Err "inputs.json not found at $INPUTS_FILE"
     exit 1
 }
 $inputsConfig = Get-Content $INPUTS_FILE -Raw | ConvertFrom-Json
-$rtmpBase = $inputsConfig.rtmpServer
-
-$STREAMS = @()
-foreach ($input in $inputsConfig.inputs) {
-    $STREAMS += @{
-        Name      = $input.name
-        RtmpUrl   = "$rtmpBase/$($input.name)"
-        Bitrate   = $input.videoBitrate
-        Bufsize   = $input.bufsize
-        AudioBitrate = $input.audioBitrate
-    }
-}
+$STREAMS = $inputsConfig.inputs
 
 # --- Colors ---
 function Write-Step($msg)  { Write-Host "`n>> $msg" -ForegroundColor Cyan }
@@ -73,7 +65,7 @@ if (Test-Path $MTX_CONFIG) {
     exit 1
 }
 
-# Check FFmpeg
+# Check FFmpeg (needed by ffmpeg-start.ps1, not by this script)
 Write-Step "Checking FFmpeg"
 try {
     $ffmpegVersion = & ffmpeg -version 2>&1 | Select-Object -First 1
@@ -103,16 +95,16 @@ if (Test-Path $nginxExe) {
 #  Prepare HLS directories
 # ============================================================
 Write-Step "Preparing HLS directories"
-foreach ($stream in $STREAMS) {
-    $dir = "$PROJECT_DIR\hls\$($stream.Name)"
+foreach ($s in $STREAMS) {
+    $dir = "$PROJECT_DIR\hls\$($s.name)"
     if (!(Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        Write-OK "Created hls\$($stream.Name)"
+        Write-OK "Created hls\$($s.name)"
     }
     $old = Get-ChildItem "$dir\*.ts" -ErrorAction SilentlyContinue
     if ($old) {
         Remove-Item "$dir\*.ts" -Force
-        Write-OK "Cleaned $($old.Count) old segment(s) from hls\$($stream.Name)"
+        Write-OK "Cleaned $($old.Count) old segment(s) from hls\$($s.name)"
     }
 }
 
@@ -157,49 +149,6 @@ Write-Host "  RTMP relay:   rtmp://0.0.0.0:1935/live/{name}" -ForegroundColor Wh
 Write-Host "  REST API:     http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor White
 
 # ============================================================
-#  Start FFmpeg instances (one per stream)
-# ============================================================
-Write-Step "Starting FFmpeg instances"
-foreach ($stream in $STREAMS) {
-    $name    = $stream.Name
-    $rtmpUrl = $stream.RtmpUrl
-    $bitrate = $stream.Bitrate
-    $bufsize = $stream.Bufsize
-    $audioBr = $stream.AudioBitrate
-    $outDir  = "$PROJECT_DIR\hls\$name"
-    $playlist = "$outDir\stream.m3u8"
-    $segPattern = "$outDir\stream%03d.ts"
-
-    # FFmpeg connects to MediaMTX as a client (no -listen flag)
-    $ffmpegArgs = @(
-        "-i", $rtmpUrl,
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-tune", "zerolatency",
-        "-b:v", $bitrate,
-        "-maxrate", $bitrate,
-        "-bufsize", $bufsize,
-        "-g", "60",
-        "-keyint_min", "60",
-        "-sc_threshold", "0",
-        "-c:a", "aac",
-        "-b:a", $audioBr,
-        "-ar", "48000",
-        "-f", "hls",
-        "-hls_time", "4",
-        "-hls_list_size", "5",
-        "-hls_flags", "delete_segments",
-        "-hls_segment_filename", $segPattern,
-        $playlist
-    )
-
-    # Start FFmpeg in a new window so each stream has its own terminal
-    $argString = $ffmpegArgs -join " "
-    Start-Process -FilePath "ffmpeg" -ArgumentList $ffmpegArgs -WindowStyle Normal
-    Write-OK "FFmpeg for $name -> hls\$name\stream.m3u8"
-}
-
-# ============================================================
 #  Print summary
 # ============================================================
 Write-Host ""
@@ -208,16 +157,20 @@ Write-Host "  Pipeline is running" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor White
 Write-Host ""
 Write-Host "  OBS streams (push to MediaMTX):" -ForegroundColor Yellow
-foreach ($stream in $STREAMS) {
-    Write-Host "    $($stream.Name):  rtmp://${LAN_IP}:1935/live/$($stream.Name)" -ForegroundColor Yellow
+foreach ($s in $STREAMS) {
+    Write-Host "    $($s.name):  rtmp://${LAN_IP}:1935/live/$($s.name)" -ForegroundColor Yellow
 }
 Write-Host ""
 Write-Host "  HLS output (served by Nginx):" -ForegroundColor Yellow
-foreach ($stream in $STREAMS) {
-    Write-Host "    $($stream.Name):  http://${LAN_IP}/hls/$($stream.Name)/stream.m3u8" -ForegroundColor Yellow
+foreach ($s in $STREAMS) {
+    Write-Host "    $($s.name):  http://${LAN_IP}/hls/$($s.name)/stream.m3u8" -ForegroundColor Yellow
 }
 Write-Host ""
 Write-Host "  Stream status:  http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  FFmpeg is managed by MediaMTX:" -ForegroundColor Cyan
+Write-Host "    Starts automatically when OBS connects" -ForegroundColor Cyan
+Write-Host "    Stops when OBS disconnects" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Stop with:  .\stop-stream.ps1" -ForegroundColor Cyan
 Write-Host ""
