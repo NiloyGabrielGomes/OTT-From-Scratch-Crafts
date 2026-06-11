@@ -14,7 +14,8 @@ param(
     [string]$StreamName
 )
 
-$PROJECT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SCRIPT_DIR  = Split-Path -Parent $MyInvocation.MyCommand.Path
+$PROJECT_DIR = Split-Path -Parent $SCRIPT_DIR
 $INPUTS_FILE = Join-Path $PROJECT_DIR "inputs.json"
 
 # --- Load config ---

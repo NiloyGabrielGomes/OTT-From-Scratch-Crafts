@@ -16,9 +16,6 @@ srt: no
 # --- WebRTC (low-latency monitoring) ---
 webrtc: yes
 webrtcAddress: :8889
-webrtcDefaultCodec: vp8
-webrtcICEServers2:
-  - url: stun:stun.l.google.com:19302
 
 # --- REST API ---
 api: yes
