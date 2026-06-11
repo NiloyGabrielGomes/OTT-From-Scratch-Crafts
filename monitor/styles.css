@@ -1,0 +1,83 @@
+/* ============================================================
+   Monitor-specific overrides on top of Pico CSS
+   ============================================================ */
+
+:root {
+  --live-red: #ff3b3b;
+  --accent: #00aaff;
+  --accent-dim: #0066aa;
+  --success: #00cc66;
+}
+
+/* --- Status Dots --- */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.status-dot.live { background: var(--live-red); animation: pulse 1.5s infinite; }
+.status-dot.connected { background: var(--success); }
+.status-dot.error { background: var(--pico-color-red-500); }
+.status-dot.offline { background: var(--pico-muted-color); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* --- Monitor Grid --- */
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--pico-spacing);
+}
+
+@media (min-width: 1400px) {
+  .monitor-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .monitor-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Stream Cell (uses Pico card styling) --- */
+.stream-cell {
+  padding: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.stream-cell.error { border-color: var(--pico-color-red-500); }
+.stream-cell.live { border-color: var(--success); }
+
+.cell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--pico-spacing);
+  border-bottom: 1px solid var(--pico-card-border-color);
+}
+
+.cell-header .stream-name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cell-header .connection-state {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-contrast-focus);
+  color: var(--pico-muted-color);
+}
+
+.cell-header .connection-state.connected { color: var(--success); }
+.cell-header .connection-state.connecting { color: var(--pico-color-amber-500); }
+.cell-header .connection-state.error { color: var(--pico-color-red-500); }
+
