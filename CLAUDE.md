@@ -15,17 +15,20 @@ This is an OTT (Over-The-Top) streaming platform built from scratch as a learnin
 - All media tool commands (ffmpeg, nginx) should use **Windows PowerShell syntax** (backtick line continuation, `dir` instead of `ls`)
 - OBS Studio is a Windows GUI application — configure via its settings UI, not CLI
 
-## Architecture — Chapter 1 Pipeline (Multi-Input)
+## Architecture — Chapter 1+2 Pipeline
 
 ```
-[OBS/Source] → [RTMP] → [MediaMTX (relay)] → [runOnReady hook] → [FFmpeg (re-encode + HLS)] → [Nginx] → [Browser/HLS.js]
+[OBS/Source] → [RTMP] → [MediaMTX (relay)]
+                              ├─→ [WebRTC (WHEP)] → [Browser Monitor]   ← Chapter 2 (low-latency)
+                              └─→ [FFmpeg] → [HLS] → [Nginx] → [Browser Viewer]  ← Chapter 1
 ```
 
-- **MediaMTX** acts as the RTMP relay server on port 1935. It receives RTMP streams from multiple sources (OBS instances) and triggers FFmpeg per-input via `runOnReady` hooks.
+- **MediaMTX** acts as the RTMP relay server on port 1935. It receives RTMP streams from multiple sources (OBS instances) and triggers FFmpeg per-input via `runOnReady` hooks. Also serves WebRTC on port 8889 for low-latency monitoring.
 - **FFmpeg** is NOT started directly. MediaMTX calls `ffmpeg/ffmpeg-start.ps1 -StreamName <name>` when a stream is published. FFmpeg reads from MediaMTX and writes HLS segments to `hls/<streamName>/`.
-- **Nginx** serves the HLS directory, the viewer page, and `inputs.json` over HTTP. Uses `server_name _` to accept requests on any IP (LAN access). Config lives at `config/nginx.conf` and is auto-deployed to Nginx's install directory by `start-stream.ps1`.
+- **Nginx** serves the HLS directory, the viewer page, the monitor page, and `inputs.json` over HTTP. Uses `server_name _` to accept requests on any IP (LAN access). Config lives at `config/nginx.conf` and is auto-deployed to Nginx's install directory by `start-stream.ps1`.
 - **inputs.json** is the single source of truth for all stream configurations (bitrate, codec settings, labels).
 - **HLS.js** in the browser fetches the manifest and segments via HTTP. The viewer has stream selector tabs populated from `/inputs.json`.
+- **WebRTC Monitor** (`monitor/index.html`) uses WHEP protocol to pull streams from MediaMTX with <1s latency. Multi-view dashboard for director/producer monitoring.
 
 **Why re-encode instead of pass-through (`-c:v copy`)?** HLS segments must start on keyframes. By re-encoding with `-g 60 -keyint_min 60 -sc_threshold 0`, we guarantee keyframes align with segment boundaries. Pass-through would require OBS to emit perfectly-aligned keyframes, which is unreliable.
 
@@ -39,14 +42,16 @@ project root/
 ├── stop-stream.ps1             # stops all processes
 ├── start-stream.bat            # convenience launcher → start-stream.ps1
 ├── inputs.json                 # stream definitions (single source of truth)
-├── mediamtx.yml                # MediaMTX relay config with runOnReady hooks
+├── mediamtx.yml                # MediaMTX relay config (RTMP + WebRTC)
 ├── auto.crt / auto.key         # self-signed TLS certs for HTTPS
 ├── ffmpeg/
 │   └── ffmpeg-start.ps1        # FFmpeg encoder (called by MediaMTX)
 ├── config/
-│   └── nginx.conf              # Nginx config (HLS serving, CORS, caching)
+│   └── nginx.conf              # Nginx config (HLS, monitor, CORS, caching)
 ├── viewer/
-│   └── index.html              # HLS.js viewer with stream selector tabs
+│   └── index.html              # HLS.js viewer with stream selector tabs (Ch1)
+├── monitor/
+│   └── index.html              # WebRTC multi-view monitor dashboard (Ch2)
 ├── hls/                        # HLS output (auto-generated, gitignored)
 │   ├── cam1/                   #   per-stream segments
 │   ├── cam2/
@@ -66,10 +71,13 @@ To add a new stream: add an entry to `inputs.json` and a corresponding `paths` b
 ## Key Config: mediamtx.yml
 
 MediaMTX is configured in `mediamtx.yml` (project root). Key points:
+- **RTMP:** Port 1935 for receiving streams from OBS
+- **WebRTC:** Port 8889 for low-latency monitoring (WHEP protocol)
 - `runOnReady` fires when OBS publishes to that path (NOT `runOnPublish` — that doesn't exist)
 - `runOnReadyRestart: yes` restarts FFmpeg if it crashes while the stream is still active
 - Paths call PowerShell directly: `powershell -ExecutionPolicy Bypass -File "...\ffmpeg\ffmpeg-start.ps1" cam1`
 - FFmpeg receives SIGINT when OBS disconnects (MediaMTX sends it automatically)
+- **WebRTC codec:** Default VP8 for lowest latency, configurable via monitor UI
 
 ## Operational Scripts
 
@@ -85,8 +93,9 @@ The pipeline supports LAN access for office network streaming/viewing:
 - Nginx uses `server_name _` to accept requests on any IP
 - OBS sources on other machines stream to `rtmp://<LAN_IP>:1935/live/<streamName>`
 - Viewers access via `http://<LAN_IP>/viewer/`
+- Monitor access via `http://<LAN_IP>/monitor/` (WebRTC, <1s latency)
 - Self-signed TLS certs (`auto.crt` / `auto.key`) are available for HTTPS if needed
-- Windows Firewall rules needed for ports 80 (Nginx), 1935 (RTMP), 9999 (MediaMTX API)
+- Windows Firewall rules needed for ports 80 (Nginx), 1935 (RTMP), 8889 (WebRTC), 9999 (MediaMTX API)
 
 ## Key FFmpeg Flags
 
@@ -101,7 +110,7 @@ The pipeline supports LAN access for office network streaming/viewing:
 
 - `claude-contexts/ott-bootcamp-task.md` — Full bootcamp task brief (all 6 chapters, checkpoints)
 - `claude-contexts/ott-bootcamp-context.md` — Detailed architectural guidance for Chapters 1-2, setup instructions, tracing guide, and checkpoint Q&A
-- `claude-contexts/plan.md` — Current implementation plan (Chapter 1 OBS variant)
+- `claude-contexts/plan.md` — Current implementation plan (Chapter 2: WebRTC Monitoring)
 
 ## Git Conventions
 
