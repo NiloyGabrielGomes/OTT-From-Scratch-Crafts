@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Monitor — Low-Latency WebRTC</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <nav class="container-fluid">
+    <ul>
+      <li><strong>&#9679; STREAM MONITOR</strong></li>
+    </ul>
+    <ul>
+      <li id="global-status"><small class="status-dot offline"></small> Initializing...</li>
+      <li><small id="stream-count">0 streams</small></li>
+    </ul>
+  </nav>
+
+  <!-- Monitor Grid -->
+  <main class="container-fluid">
+    <div class="monitor-grid" id="monitor-grid">
+      <!-- Cells populated by JavaScript -->
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="container-fluid">
+    <div class="grid">
+      <div>
+        <label>Default Codec:
+          <select id="default-codec">
+            <option value="vp8" selected>VP8 (Low Latency)</option>
+            <option value="h264">H.264 (Hardware)</option>
+            <option value="vp9">VP9 (High Quality)</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <button onclick="reconnectAll()" class="outline">&#8635; Reconnect All</button>
+      </div>
+      <div>
+        <small>WebRTC WHEP &middot; MediaMTX &middot; Latency target: &lt;1s</small>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+
+</body>
+</html>
