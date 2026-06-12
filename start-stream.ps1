@@ -145,8 +145,9 @@ if (!$mtxProc.HasExited) {
 }
 
 Write-Host ""
-Write-Host "  RTMP relay:   rtmp://0.0.0.0:1935/live/{name}" -ForegroundColor White
-Write-Host "  REST API:     http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor White
+Write-Host "  RTMP relay:     rtmp://0.0.0.0:1935/live/{name}" -ForegroundColor White
+Write-Host "  WebRTC monitor: http://${LAN_IP}:8889 (WHEP)" -ForegroundColor White
+Write-Host "  REST API:       http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor White
 
 # ============================================================
 #  Print summary
@@ -166,7 +167,8 @@ foreach ($s in $STREAMS) {
     Write-Host "    $($s.name):  http://${LAN_IP}/hls/$($s.name)/stream.m3u8" -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "  Stream status:  http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor Yellow
+Write-Host "  Monitor (WebRTC):  http://${LAN_IP}/monitor/" -ForegroundColor Yellow
+Write-Host "  Stream status:     http://${LAN_IP}:9999/v3/paths/list" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  FFmpeg is managed by MediaMTX:" -ForegroundColor Cyan
 Write-Host "    Starts automatically when OBS connects" -ForegroundColor Cyan
