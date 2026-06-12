@@ -6,6 +6,14 @@
 #  FFmpeg settings live in inputs.json (single source of truth).
 # ============================================================
 
+# --- Recording (saves streams to disk automatically) ---
+pathDefaults:
+  record: yes
+  recordPath: ./videos/%path/%Y-%m-%d_%H-%M-%S
+  recordFormat: fmp4
+  recordSegmentDuration: 1h
+  recordDeleteAfter: 0s    # never auto-delete
+
 # --- Server protocols ---
 rtmp: yes
 rtmpAddress: :1935
