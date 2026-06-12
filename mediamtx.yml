@@ -9,7 +9,7 @@
 # --- Recording (saves streams to disk automatically) ---
 pathDefaults:
   record: yes
-  recordPath: ./videos/%path/%Y-%m-%d_%H-%M-%S
+  recordPath: E:/Streaming Service Project/OTT-From-Scratch-Crafts/videos/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordSegmentDuration: 1h
   recordDeleteAfter: 0s    # never auto-delete
