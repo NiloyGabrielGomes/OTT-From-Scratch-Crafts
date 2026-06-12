@@ -265,6 +265,126 @@ function updateStatsUI(streamName, stats) {
   setVal(`rtt-${streamName}`, stats.rtt || '--');
 }
 
+// Connect to a stream
+async function connectStream(streamName) {
+  const streamData = streams.get(streamName);
+  if (!streamData) return;
+
+  const video = document.getElementById(`video-${streamName}`);
+  if (!video) return;
+
+  const codec = document.getElementById('default-codec')?.value || 'vp8';
+  const endpoint = getWHEPEndpoint(streamName);
+
+  const client = new WHEPClient(endpoint, video, (event) => {
+    if (event.type === 'state') {
+      updateConnectionUI(streamName, event.state);
+    } else if (event.type === 'stats') {
+      updateStatsUI(streamName, event);
+    } else if (event.type === 'error') {
+      updateConnectionUI(streamName, 'error');
+    }
+  });
+
+  streamData.client = client;
+  updateConnectionUI(streamName, 'connecting');
+  await client.connect(codec);
+}
+
+// Reconnect a single stream
+async function reconnect(streamName) {
+  const streamData = streams.get(streamName);
+  if (streamData?.client) {
+    streamData.client.close();
+  }
+  await connectStream(streamName);
+}
+
+// Reconnect all streams
+async function reconnectAll() {
+  for (const streamName of streams.keys()) {
+    await reconnect(streamName);
+  }
+}
+
+// Toggle mute
+function toggleMute(streamName) {
+  const video = document.getElementById(`video-${streamName}`);
+  const btn = document.getElementById(`mute-${streamName}`);
+  if (!video || !btn) return;
+
+  video.muted = !video.muted;
+  btn.innerHTML = video.muted ? '&#128263;' : '&#128266;';
+  btn.classList.toggle('active', !video.muted);
+}
+
+// Snapshot to canvas
+function snapshot(streamName) {
+  const video = document.getElementById(`video-${streamName}`);
+  if (!video || !video.videoWidth) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  const link = document.createElement('a');
+  link.download = `${streamName}-snapshot-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// Toggle fullscreen
+function toggleFullscreen(streamName) {
+  const cell = document.getElementById(`cell-${streamName}`);
+  if (!cell) return;
+
+  cell.classList.toggle('fullscreen');
+}
+
+// ============================================================
+//  Initialize
+// ============================================================
+async function init() {
+  const grid = document.getElementById('monitor-grid');
+  const globalStatus = document.getElementById('global-status');
+  const streamCount = document.getElementById('stream-count');
+
+  try {
+    // Fetch stream definitions
+    const response = await fetch('/inputs.json');
+    inputsData = await response.json();
+
+    const streamList = inputsData.inputs || [];
+    streamCount.textContent = `${streamList.length} streams`;
+
+    // Create cells for each stream
+    for (const stream of streamList) {
+      const cell = createStreamCell(stream.name, stream.label || stream.name);
+      grid.appendChild(cell);
+      streams.set(stream.name, { client: null, config: stream });
+    }
+
+    globalStatus.innerHTML = '<span class="status-dot connected"></span>Ready — connecting to streams...';
+
+    // Connect to all streams
+    for (const name of streamNames) {
+      await connectStream(name);
+    }
+
+    // Update global status
+    const connectedCount = [...streams.values()].filter(s => s.client?.state === 'connected').length;
+    if (connectedCount > 0) {
+      globalStatus.innerHTML = `<span class="status-dot live"></span>${connectedCount}/${streamNames.length} streams live`;
+    } else {
+      globalStatus.innerHTML = '<span class="status-dot error"></span>No streams available';
+    }
+
+  } catch (err) {
+    console.error('Failed to initialize monitor:', err);
+    globalStatus.innerHTML = '<span class="status-dot error"></span>Failed to load stream config';
+  }
+}
 
 // Auto-reconnect streams that disconnect
 setInterval(() => {
