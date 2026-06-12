@@ -208,6 +208,64 @@ function createStreamCell(streamName, label) {
   return cell;
 }
 
+// Update connection state UI
+function updateConnectionUI(streamName, state) {
+  const dot = document.getElementById(`dot-${streamName}`);
+  const stateEl = document.getElementById(`state-${streamName}`);
+  const overlay = document.getElementById(`overlay-${streamName}`);
+  const cell = document.getElementById(`cell-${streamName}`);
+
+  if (!dot || !stateEl) return;
+
+  dot.className = 'status-dot';
+  cell?.classList.remove('live', 'error');
+
+  switch (state) {
+    case 'connected':
+      dot.classList.add('live');
+      stateEl.textContent = 'LIVE';
+      stateEl.className = 'connection-state connected';
+      overlay?.classList.add('hidden');
+      cell?.classList.add('live');
+      break;
+    case 'connecting':
+      dot.classList.add('connected');
+      stateEl.textContent = 'connecting...';
+      stateEl.className = 'connection-state connecting';
+      overlay.textContent = 'Connecting...';
+      overlay?.classList.remove('hidden');
+      break;
+    case 'error':
+      dot.classList.add('error');
+      stateEl.textContent = 'error';
+      stateEl.className = 'connection-state error';
+      overlay.textContent = 'Connection failed';
+      overlay?.classList.remove('hidden');
+      cell?.classList.add('error');
+      break;
+    default:
+      dot.classList.add('offline');
+      stateEl.textContent = 'disconnected';
+      stateEl.className = 'connection-state';
+      overlay.textContent = 'Waiting for stream...';
+      overlay?.classList.remove('hidden');
+  }
+}
+
+// Update stats UI
+function updateStatsUI(streamName, stats) {
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  setVal(`bitrate-${streamName}`, stats.bitrate || '--');
+  setVal(`fps-${streamName}`, stats.fps || '--');
+  setVal(`res-${streamName}`, stats.resolution || '--');
+  setVal(`loss-${streamName}`, stats.packetLoss || '--');
+  setVal(`rtt-${streamName}`, stats.rtt || '--');
+}
+
+
 // Auto-reconnect streams that disconnect
 setInterval(() => {
   for (const [name, data] of streams.entries()) {
