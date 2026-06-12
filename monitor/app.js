@@ -161,6 +161,53 @@ class WHEPClient {
   }
 }
 
+// ============================================================
+//  Monitor App
+// ============================================================
+const MONITOR_PORT = 8889;
+const streams = new Map(); // streamName → { client, elements }
+let inputsData = null;
+
+// Build WHEP endpoint URL
+function getWHEPEndpoint(streamName) {
+  const host = window.location.hostname;
+  return `http://${host}:${MONITOR_PORT}/live/${streamName}`;
+}
+
+// Create a stream cell element (uses Pico's <article> card)
+function createStreamCell(streamName, label) {
+  const cell = document.createElement('article');
+  cell.className = 'stream-cell';
+  cell.id = `cell-${streamName}`;
+  cell.innerHTML = `
+    <div class="cell-header">
+      <div class="stream-name">
+        <span class="status-dot offline" id="dot-${streamName}"></span>
+        <span>${label}</span>
+      </div>
+      <span class="connection-state" id="state-${streamName}">disconnected</span>
+    </div>
+    <div class="video-container">
+      <video id="video-${streamName}" autoplay muted playsinline></video>
+      <div class="video-overlay" id="overlay-${streamName}">Waiting for stream...</div>
+    </div>
+    <div class="stats-bar" id="stats-${streamName}">
+      <span class="stat-item"><span class="label">BITRATE</span> <span class="value" id="bitrate-${streamName}">--</span> kbps</span>
+      <span class="stat-item"><span class="label">FPS</span> <span class="value" id="fps-${streamName}">--</span></span>
+      <span class="stat-item"><span class="label">RES</span> <span class="value" id="res-${streamName}">--</span></span>
+      <span class="stat-item"><span class="label">LOSS</span> <span class="value" id="loss-${streamName}">--</span>%</span>
+      <span class="stat-item"><span class="label">RTT</span> <span class="value" id="rtt-${streamName}">--</span>ms</span>
+    </div>
+    <div class="cell-controls">
+      <button class="outline" onclick="toggleMute('${streamName}')" id="mute-${streamName}" title="Mute/Unmute">&#128263;</button>
+      <button class="outline" onclick="snapshot('${streamName}')" title="Snapshot">&#128247;</button>
+      <button class="outline" onclick="toggleFullscreen('${streamName}')" title="Fullscreen">&#9974;</button>
+      <button class="outline" onclick="reconnect('${streamName}')" title="Reconnect">&#8635;</button>
+    </div>
+  `;
+  return cell;
+}
+
 // Auto-reconnect streams that disconnect
 setInterval(() => {
   for (const [name, data] of streams.entries()) {
