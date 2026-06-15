@@ -1,5 +1,5 @@
 // ============================================================
-//  Stream Viewer — Live + VOD
+//  Stream Viewer - Live + VOD
 // ============================================================
 
 // === DOM refs ===
@@ -75,7 +75,7 @@ function switchStream(name) {
     const url = streamUrl(name);
     setStatus('Connecting...', 'loading');
 
-    if (Hls.isSupported()) {
+    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
         hls = new Hls({
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 6,
@@ -113,6 +113,9 @@ function switchStream(name) {
 async function initLive() {
     try {
         const resp = await fetch('/inputs.json');
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status} while loading /inputs.json`);
+        }
         const data = await resp.json();
         streams = data.inputs || [];
 
@@ -168,7 +171,7 @@ function playVod(videoId) {
 
     const url = entry.playlist;
 
-    if (Hls.isSupported()) {
+    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
         vodHls = new Hls();
         vodHls.loadSource(url);
         vodHls.attachMedia(vodVideo);
