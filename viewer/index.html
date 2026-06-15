@@ -1,191 +1,59 @@
 <!DOCTYPE html>
-  <html lang="en">
-  <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Live Stream Viewer</title>
-      <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-      <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            background: #111;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            font-family: system-ui, sans-serif;
-            color: #eee;
-            padding: 2rem 1rem;
-        }
-        h1 { margin: 0 0 1.5rem 0; font-size: 1.4rem; }
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul><li><strong>&#127909; STREAM VIEWER</strong></li></ul>
+        <ul>
+            <li id="mode-live" class="mode-tab active" data-mode="live">&#128308; Live</li>
+            <li id="mode-vod" class="mode-tab" data-mode="vod">&#127916; VOD</li>
+        </ul>
+    </nav>
 
-        /* Stream selector tabs */
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .tab {
-            padding: 0.5rem 1.2rem;
-            background: #222;
-            border: 2px solid #333;
-            border-radius: 6px;
-            color: #aaa;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        .tab:hover { border-color: #555; color: #ddd; }
-        .tab.active {
-            background: #2d6a2e;
-            border-color: #4a4;
-            color: #fff;
-        }
+    <main class="container-fluid">
+        <!-- Live section -->
+        <section id="live-section">
+            <div class="tabs" id="tabs"></div>
+            <figure>
+                <video id="video" controls autoplay muted></video>
+            </figure>
+            <div id="status" class="status-bar loading">Loading streams...</div>
+            <small id="info" class="stream-info"></small>
+        </section>
 
-        /* Video player */
-        video {
-            max-width: 90vw;
-            max-height: 70vh;
-            border: 2px solid #333;
-            border-radius: 8px;
-            background: #000;
-        }
+        <!-- VOD section -->
+        <section id="vod-section" class="hidden">
+            <!-- VOD player -->
+            <div id="vod-player-area" class="hidden">
+                <a href="#" id="vod-back" role="button" class="outline secondary">&#8592; Back to library</a>
+                <figure>
+                    <video id="vod-video" controls></video>
+                </figure>
+                <div id="vod-status" class="status-bar"></div>
+                <small id="vod-info" class="stream-info"></small>
+            </div>
+            <!-- VOD library -->
+            <div id="vod-library">
+                <div class="grid" id="vod-grid"></div>
+                <div id="vod-empty" class="hidden">
+                    <article>
+                        <p>No VOD videos available yet.<br>Record a stream first.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
 
-        /* Status bar */
-        #status {
-            margin-top: 1rem;
-            padding: 0.4rem 1rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .live    { background: #2d6a2e; }
-        .error   { background: #6a2d2d; }
-        .loading { background: #6a6a2d; }
+    <footer class="container-fluid">
+        <small>HLS.js &middot; Live &amp; VOD &middot; <a href="/monitor/">Monitor</a></small>
+    </footer>
 
-        /* Stream info */
-        .info {
-            margin-top: 0.8rem;
-            font-size: 0.8rem;
-            color: #666;
-        }
-    </style>
-  </head>
-  <body>
-      <h1>&#128308; Live Stream</h1>
-    <div class="tabs" id="tabs"></div>
-    <video id="video" controls autoplay muted></video>
-    <div id="status" class="loading">Loading streams...</div>
-    <div class="info" id="info"></div>
-
-      <script>
-          const video   = document.getElementById('video');
-        const status  = document.getElementById('status');
-        const tabsDiv = document.getElementById('tabs');
-        const infoDiv = document.getElementById('info');
-
-        let hls      = null;
-        let streams  = [];
-        let active   = null;
-
-        function setStatus(text, cls) {
-            status.textContent = text;
-            status.className   = cls;
-        }
-
-        // Build stream URL from name: /hls/{name}/stream.m3u8
-        function streamUrl(name) {
-            return `/hls/${name}/stream.m3u8`;
-        }
-
-        // Switch to a stream
-        function switchStream(name) {
-            if (active === name) return;
-            active = name;
-
-            // Update tab highlight
-            document.querySelectorAll('.tab').forEach(t => {
-                t.classList.toggle('active', t.dataset.name === name);
-            });
-
-            // Show stream info
-            const s = streams.find(x => x.name === name);
-            infoDiv.textContent = s
-                ? `${s.label} — video: ${s.videoBitrate}, audio: ${s.audioBitrate}`
-                : '';
-
-            // Destroy old HLS instance
-            if (hls) { hls.destroy(); hls = null; }
-
-            const url = streamUrl(name);
-            setStatus('Connecting...', 'loading');
-
-            if (Hls.isSupported()) {
-                hls = new Hls({
-                    liveSyncDurationCount: 3,
-                    liveMaxLatencyDurationCount: 6,
-                });
-                hls.loadSource(url);
-                hls.attachMedia(video);
-
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    setStatus('LIVE', 'live');
-                    video.play().catch(() => {});
-                });
-
-                hls.on(Hls.Events.ERROR, (_, data) => {
-                    if (data.fatal) {
-                        setStatus('Stream offline — is OBS streaming?', 'error');
-                        console.error('HLS fatal error:', data);
-                    }
-                });
-
-                hls.on(Hls.Events.FRAG_LOADED, () => {
-                    setStatus('LIVE', 'live');
-                });
-
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('loadedmetadata', () => {
-                    setStatus('LIVE', 'live');
-                    video.play().catch(() => {});
-                });
-            } else {
-                setStatus('HLS not supported in this browser', 'error');
-            }
-        }
-        // Fetch inputs.json and build tabs
-        async function init() {
-            try {
-                const resp = await fetch('/inputs.json');
-                const data = await resp.json();
-                streams = data.inputs || [];
-
-                if (!streams.length) {
-                    setStatus('No streams configured in inputs.json', 'error');
-                    return;
-                }
-
-                // Build tabs
-                streams.forEach(s => {
-                    const btn = document.createElement('button');
-                    btn.className    = 'tab';
-                    btn.dataset.name = s.name;
-                    btn.textContent  = s.label || s.name;
-                    btn.addEventListener('click', () => switchStream(s.name));
-                    tabsDiv.appendChild(btn);
-                });
-
-                // Auto-select first stream
-                switchStream(streams[0].name);
-
-            } catch (e) {
-                setStatus('Failed to load /inputs.json — is Nginx running?', 'error');
-                console.error(e);
-            }
-        }
-
-        init();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

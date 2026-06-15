@@ -1,0 +1,85 @@
+/* Mode tabs */
+.mode-tabs {
+    display: flex;
+    gap: 0.5rem;
+}
+.mode-tab {
+    cursor: pointer;
+    padding: 0.4rem 1rem;
+    border-radius: var(--pico-border-radius);
+    font-weight: 600;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+.mode-tab:hover { opacity: 0.8; }
+.mode-tab.active { opacity: 1; color: var(--pico-primary); }
+
+/* Stream selector tabs */
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.stream-tab {
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    cursor: pointer;
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+.stream-tab:hover { border-color: var(--pico-primary); color: var(--pico-primary); }
+.stream-tab.active {
+    background: var(--pico-primary);
+    border-color: var(--pico-primary);
+    color: #fff;
+}
+
+/* Video */
+video {
+    width: 100%;
+    border-radius: var(--pico-border-radius);
+    background: #000;
+}
+
+/* Status bar */
+.status-bar {
+    padding: 0.4rem 1rem;
+    border-radius: var(--pico-border-radius);
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+}
+.status-bar.live    { background: var(--pico-ins-color); }
+.status-bar.error   { background: var(--pico-del-color); }
+.status-bar.loading { background: var(--pico-h6-color); }
+.status-bar.ad      { background: #6a4a00; }
+.status-bar.vod     { background: var(--pico-primary-focus); }
+
+/* Stream info */
+.stream-info {
+    color: var(--pico-muted-color);
+    display: block;
+    margin-bottom: 1rem;
+}
+
+/* VOD grid */
+.vod-card {
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.vod-card:hover { border-color: var(--pico-primary); }
+.vod-thumb {
+    aspect-ratio: 16 / 9;
+    background: var(--pico-card-background-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+}
+
+/* Visibility */
+.hidden { display: none !important; }
