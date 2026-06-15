@@ -23,12 +23,14 @@ const vodBack       = document.getElementById('vod-back');
 let hls       = null;
 let streams   = [];
 let active    = null;
-let vodHls    = null;
 let vodCatalog = [];
+let adVideoUrl = null;
 
 // === Mode switching ===
 function switchMode(mode) {
-    modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    modeTabs.forEach(function(t) {
+        t.classList.toggle('active', t.dataset.mode === mode);
+    });
     liveSection.classList.toggle('hidden', mode !== 'live');
     vodSection.classList.toggle('hidden', mode !== 'vod');
 
@@ -39,12 +41,13 @@ function switchMode(mode) {
     }
     if (mode === 'live') {
         vodVideo.pause();
-        vodVideo.src = '';
+        vodVideo.removeAttribute('src');
+        vodVideo.load();
     }
 }
 
-modeTabs.forEach(t => {
-    t.addEventListener('click', () => switchMode(t.dataset.mode));
+modeTabs.forEach(function(t) {
+    t.addEventListener('click', function() { switchMode(t.dataset.mode); });
 });
 
 // === Live stream ===
@@ -54,25 +57,25 @@ function setStatus(text, cls) {
 }
 
 function streamUrl(name) {
-    return `/hls/${name}/stream.m3u8`;
+    return '/hls/' + name + '/stream.m3u8';
 }
 
 function switchStream(name) {
     if (active === name) return;
     active = name;
 
-    document.querySelectorAll('.stream-tab').forEach(t => {
+    document.querySelectorAll('.stream-tab').forEach(function(t) {
         t.classList.toggle('active', t.dataset.name === name);
     });
 
-    const s = streams.find(x => x.name === name);
+    var s = streams.find(function(x) { return x.name === name; });
     infoDiv.textContent = s
-        ? `${s.label} — video: ${s.videoBitrate}, audio: ${s.audioBitrate}`
+        ? s.label + ' - video: ' + s.videoBitrate + ', audio: ' + s.audioBitrate
         : '';
 
     if (hls) { hls.destroy(); hls = null; }
 
-    const url = streamUrl(name);
+    var url = streamUrl(name);
     setStatus('Connecting...', 'loading');
 
     if (typeof Hls !== 'undefined' && Hls.isSupported()) {
@@ -83,27 +86,27 @@ function switchStream(name) {
         hls.loadSource(url);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
             setStatus('LIVE', 'live');
-            video.play().catch(() => {});
+            video.play().catch(function() {});
         });
 
-        hls.on(Hls.Events.ERROR, (_, data) => {
+        hls.on(Hls.Events.ERROR, function(_, data) {
             if (data.fatal) {
-                setStatus('Stream offline — is OBS streaming?', 'error');
+                setStatus('Stream offline - is OBS streaming?', 'error');
                 console.error('HLS fatal error:', data);
             }
         });
 
-        hls.on(Hls.Events.FRAG_LOADED, () => {
+        hls.on(Hls.Events.FRAG_LOADED, function() {
             setStatus('LIVE', 'live');
         });
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
-        video.addEventListener('loadedmetadata', () => {
+        video.addEventListener('loadedmetadata', function() {
             setStatus('LIVE', 'live');
-            video.play().catch(() => {});
+            video.play().catch(function() {});
         });
     } else {
         setStatus('HLS not supported in this browser', 'error');
@@ -112,11 +115,11 @@ function switchStream(name) {
 
 async function initLive() {
     try {
-        const resp = await fetch('/inputs.json');
+        var resp = await fetch('/inputs.json');
         if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status} while loading /inputs.json`);
+            throw new Error('HTTP ' + resp.status + ' while loading /inputs.json');
         }
-        const data = await resp.json();
+        var data = await resp.json();
         streams = data.inputs || [];
 
         if (!streams.length) {
@@ -124,19 +127,19 @@ async function initLive() {
             return;
         }
 
-        streams.forEach(s => {
-            const btn = document.createElement('button');
+        streams.forEach(function(s) {
+            var btn = document.createElement('button');
             btn.className = 'stream-tab';
             btn.dataset.name = s.name;
             btn.textContent = s.label || s.name;
-            btn.addEventListener('click', () => switchStream(s.name));
+            btn.addEventListener('click', function() { switchStream(s.name); });
             tabsDiv.appendChild(btn);
         });
 
         switchStream(streams[0].name);
 
     } catch (e) {
-        setStatus('Failed to load /inputs.json — is Nginx running?', 'error');
+        setStatus('Failed to load /inputs.json - is Nginx running?', 'error');
         console.error(e);
     }
 }
@@ -147,11 +150,11 @@ function setVodStatus(text, cls) {
     vodStatus.className = 'status-bar ' + cls;
 }
 
-vodBack.addEventListener('click', (e) => {
+vodBack.addEventListener('click', function(e) {
     e.preventDefault();
-    if (vodHls) { vodHls.destroy(); vodHls = null; }
     vodVideo.pause();
-    vodVideo.src = '';
+    vodVideo.removeAttribute('src');
+    vodVideo.load();
     vodPlayerArea.classList.add('hidden');
     vodLibrary.classList.remove('hidden');
     setVodStatus('', '');
@@ -159,68 +162,54 @@ vodBack.addEventListener('click', (e) => {
 });
 
 function playVod(videoId) {
-    const entry = vodCatalog.find(v => v.id === videoId);
+    var entry = vodCatalog.find(function(v) { return v.id === videoId; });
     if (!entry) return;
 
     vodLibrary.classList.add('hidden');
     vodPlayerArea.classList.remove('hidden');
     vodInfo.textContent = entry.title;
 
-    if (vodHls) { vodHls.destroy(); vodHls = null; }
-    setVodStatus('Loading...', 'loading');
+    // Play ad first, then content
+    setVodStatus('Playing ad...', 'ad');
+    vodVideo.src = adVideoUrl;
+    vodVideo.play().catch(function() {});
 
-    const url = entry.playlist;
-
-    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-        vodHls = new Hls();
-        vodHls.loadSource(url);
-        vodHls.attachMedia(vodVideo);
-
-        vodHls.on(Hls.Events.MANIFEST_PARSED, () => {
+    vodVideo.onended = function() {
+        // Check if we just finished the ad
+        if (vodVideo.src.indexOf('ad/') !== -1) {
             setVodStatus('Playing', 'vod');
-            vodVideo.play().catch(() => {});
-        });
-
-        vodHls.on(Hls.Events.ERROR, (_, data) => {
-            if (data.fatal) {
-                setVodStatus('Error loading video', 'error');
-                console.error('VOD HLS fatal error:', data);
-            }
-        });
-
-    } else if (vodVideo.canPlayType('application/vnd.apple.mpegurl')) {
-        vodVideo.src = url;
-        vodVideo.addEventListener('loadedmetadata', () => {
-            setVodStatus('Playing', 'vod');
-            vodVideo.play().catch(() => {});
-        });
-    } else {
-        setVodStatus('HLS not supported in this browser', 'error');
-    }
+            vodVideo.src = entry.url;
+            vodVideo.play().catch(function() {});
+            vodVideo.onended = function() {
+                setVodStatus('Finished', 'vod');
+            };
+        }
+    };
 }
 
 async function initVod() {
     try {
-        const resp = await fetch('/vod/catalog.json');
-        const data = await resp.json();
+        var resp = await fetch('/videos/catalog.json');
+        if (!resp.ok) return;
+        var data = await resp.json();
         vodCatalog = data.videos || [];
+        adVideoUrl = data.ad || null;
 
-        if (!vodCatalog.length) {
+        if (!vodCatalog.length || !adVideoUrl) {
             vodEmpty.classList.remove('hidden');
             return;
         }
 
-        vodCatalog.forEach(v => {
-            const card = document.createElement('article');
+        vodCatalog.forEach(function(v) {
+            var card = document.createElement('article');
             card.className = 'vod-card';
-            card.innerHTML = `
-                <div class="vod-thumb">&#127916;</div>
-                <footer>
-                    <strong>${v.title}</strong><br>
-                    <small>${v.duration || 'Unknown duration'}</small>
-                </footer>
-            `;
-            card.addEventListener('click', () => playVod(v.id));
+            card.innerHTML =
+                '<div class="vod-thumb">&#127916;</div>' +
+                '<footer>' +
+                '<strong>' + v.title + '</strong><br>' +
+                '<small>' + (v.duration || '') + '</small>' +
+                '</footer>';
+            card.addEventListener('click', function() { playVod(v.id); });
             vodGrid.appendChild(card);
         });
 
