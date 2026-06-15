@@ -47,6 +47,97 @@ modeTabs.forEach(t => {
     t.addEventListener('click', () => switchMode(t.dataset.mode));
 });
 
+// === Live stream ===
+function setStatus(text, cls) {
+    status.textContent = text;
+    status.className = 'status-bar ' + cls;
+}
+
+function streamUrl(name) {
+    return `/hls/${name}/stream.m3u8`;
+}
+
+function switchStream(name) {
+    if (active === name) return;
+    active = name;
+
+    document.querySelectorAll('.stream-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.name === name);
+    });
+
+    const s = streams.find(x => x.name === name);
+    infoDiv.textContent = s
+        ? `${s.label} — video: ${s.videoBitrate}, audio: ${s.audioBitrate}`
+        : '';
+
+    if (hls) { hls.destroy(); hls = null; }
+
+    const url = streamUrl(name);
+    setStatus('Connecting...', 'loading');
+
+    if (Hls.isSupported()) {
+        hls = new Hls({
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 6,
+        });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            setStatus('LIVE', 'live');
+            video.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) {
+                setStatus('Stream offline — is OBS streaming?', 'error');
+                console.error('HLS fatal error:', data);
+            }
+        });
+
+        hls.on(Hls.Events.FRAG_LOADED, () => {
+            setStatus('LIVE', 'live');
+        });
+
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => {
+            setStatus('LIVE', 'live');
+            video.play().catch(() => {});
+        });
+    } else {
+        setStatus('HLS not supported in this browser', 'error');
+    }
+}
+
+async function initLive() {
+    try {
+        const resp = await fetch('/inputs.json');
+        const data = await resp.json();
+        streams = data.inputs || [];
+
+        if (!streams.length) {
+            setStatus('No streams configured in inputs.json', 'error');
+            return;
+        }
+
+        streams.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'stream-tab';
+            btn.dataset.name = s.name;
+            btn.textContent = s.label || s.name;
+            btn.addEventListener('click', () => switchStream(s.name));
+            tabsDiv.appendChild(btn);
+        });
+
+        switchStream(streams[0].name);
+
+    } catch (e) {
+        setStatus('Failed to load /inputs.json — is Nginx running?', 'error');
+        console.error(e);
+    }
+}
+
 // === VOD ===
 function setVodStatus(text, cls) {
     vodStatus.textContent = text;
