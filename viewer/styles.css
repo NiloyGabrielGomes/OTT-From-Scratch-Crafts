@@ -65,6 +65,9 @@ video {
     margin-bottom: 1rem;
 }
 
+/* VOD player area (for skip button positioning) */
+#vod-player-area { position: relative; }
+
 /* VOD grid */
 .vod-card {
     cursor: pointer;

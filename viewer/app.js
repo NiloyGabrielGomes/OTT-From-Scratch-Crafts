@@ -145,13 +145,71 @@ async function initLive() {
 }
 
 // === VOD ===
+var isAdPlaying = false;
+var adSkipTimer = null;
+
 function setVodStatus(text, cls) {
     vodStatus.textContent = text;
     vodStatus.className = 'status-bar ' + cls;
 }
 
+// Disable seeking during ad
+vodVideo.addEventListener('seeking', function() {
+    if (isAdPlaying) {
+        vodVideo.currentTime = vodVideo.currentTime;
+    }
+});
+
+// Disable playback rate change during ad
+vodVideo.addEventListener('ratechange', function() {
+    if (isAdPlaying && vodVideo.playbackRate !== 1) {
+        vodVideo.playbackRate = 1;
+    }
+});
+
+// Show skip button after 10 seconds
+function startAdSkipTimer() {
+    var skipBtn = document.getElementById('vod-skip');
+    if (skipBtn) skipBtn.remove();
+
+    skipBtn = document.createElement('button');
+    skipBtn.id = 'vod-skip';
+    skipBtn.className = 'outline';
+    skipBtn.textContent = 'Skip Ad';
+    skipBtn.style.cssText = 'position:absolute;bottom:4rem;right:1rem;z-index:10;display:none;';
+    vodPlayerArea.appendChild(skipBtn);
+
+    adSkipTimer = setTimeout(function() {
+        skipBtn.style.display = 'inline-block';
+    }, 10000);
+
+    skipBtn.addEventListener('click', function() {
+        skipToContent();
+    });
+}
+
+function clearAdState() {
+    isAdPlaying = false;
+    if (adSkipTimer) { clearTimeout(adSkipTimer); adSkipTimer = null; }
+    var skipBtn = document.getElementById('vod-skip');
+    if (skipBtn) skipBtn.remove();
+}
+
+function skipToContent() {
+    clearAdState();
+    setVodStatus('Playing', 'vod');
+    vodVideo.src = currentContentUrl;
+    vodVideo.play().catch(function() {});
+    vodVideo.onended = function() {
+        setVodStatus('Finished', 'vod');
+    };
+}
+
+var currentContentUrl = null;
+
 vodBack.addEventListener('click', function(e) {
     e.preventDefault();
+    clearAdState();
     vodVideo.pause();
     vodVideo.removeAttribute('src');
     vodVideo.load();
@@ -168,23 +226,35 @@ function playVod(videoId) {
     vodLibrary.classList.add('hidden');
     vodPlayerArea.classList.remove('hidden');
     vodInfo.textContent = entry.title;
+    currentContentUrl = entry.url;
 
-    // Play ad first, then content
-    setVodStatus('Playing ad...', 'ad');
+    // Play ad first
+    isAdPlaying = true;
+    setVodStatus('Ad - ' + Math.ceil(getAdDuration()) + 's remaining', 'ad');
     vodVideo.src = adVideoUrl;
     vodVideo.play().catch(function() {});
+    startAdSkipTimer();
 
-    vodVideo.onended = function() {
-        // Check if we just finished the ad
-        if (vodVideo.src.indexOf('ad/') !== -1) {
-            setVodStatus('Playing', 'vod');
-            vodVideo.src = entry.url;
-            vodVideo.play().catch(function() {});
-            vodVideo.onended = function() {
-                setVodStatus('Finished', 'vod');
-            };
+    // Update countdown
+    vodVideo.ontimeupdate = function() {
+        if (isAdPlaying) {
+            var remaining = Math.ceil(vodVideo.duration - vodVideo.currentTime);
+            if (remaining > 0) {
+                setVodStatus('Ad - ' + remaining + 's remaining', 'ad');
+            }
         }
     };
+
+    vodVideo.onended = function() {
+        if (isAdPlaying) {
+            // Ad finished, play content
+            skipToContent();
+        }
+    };
+}
+
+function getAdDuration() {
+    return vodVideo.duration || 0;
 }
 
 async function initVod() {
