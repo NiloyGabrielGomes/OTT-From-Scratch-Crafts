@@ -41,8 +41,21 @@
 /* Video */
 video {
     width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
     border-radius: var(--pico-border-radius);
     background: #000;
+}
+
+/* Hide all native controls during ad */
+figure.ad-mode video::-webkit-media-controls {
+    display: none !important;
+}
+figure.ad-mode video::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+figure.ad-mode video {
+    pointer-events: none;
 }
 
 /* Status bar */

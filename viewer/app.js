@@ -25,6 +25,7 @@ let streams   = [];
 let active    = null;
 let vodCatalog = [];
 let adVideoUrl = null;
+var vodFigure = document.getElementById('vod-figure');
 
 // === Mode switching ===
 function switchMode(mode) {
@@ -197,6 +198,7 @@ function clearAdState() {
 
 function skipToContent() {
     clearAdState();
+    vodFigure.classList.remove('ad-mode');
     setVodStatus('Playing', 'vod');
     vodVideo.src = currentContentUrl;
     vodVideo.play().catch(function() {});
@@ -228,8 +230,9 @@ function playVod(videoId) {
     vodInfo.textContent = entry.title;
     currentContentUrl = entry.url;
 
-    // Play ad first
+    // Play ad first — hide all controls
     isAdPlaying = true;
+    vodFigure.classList.add('ad-mode');
     setVodStatus('Ad - ' + Math.ceil(getAdDuration()) + 's remaining', 'ad');
     vodVideo.src = adVideoUrl;
     vodVideo.play().catch(function() {});
