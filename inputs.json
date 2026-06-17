@@ -1,5 +1,11 @@
 {
   "rtmpServer": "rtmp://localhost:1935/live",
+  "adSchedule": {
+    "interval": 60,
+    "adUrl": "/hls/ad/index.m3u8",
+    "duration": 10,
+    "enabled": true
+  },
   "inputs": [
     {
       "name": "cam1",
