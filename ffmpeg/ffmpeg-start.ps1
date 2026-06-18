@@ -61,7 +61,7 @@ $ffmpegArgs = @(
     "-f", "hls",
     "-hls_time", "4",
     "-hls_list_size", "5",
-    "-hls_flags", "delete_segments",
+    "-hls_flags", "delete_segments+program_date_time",
     "-hls_segment_filename", $segPattern,
     $playlist
 )
@@ -70,6 +70,25 @@ Write-Host ">> FFmpeg starting for '$StreamName'" -ForegroundColor Cyan
 Write-Host "   Input:  $rtmpUrl" -ForegroundColor Gray
 Write-Host "   Output: $playlist" -ForegroundColor Gray
 
+# --- Start ad injector (background) if enabled ---
+$adProcess = $null
+$adSchedule = $config.adSchedule
+if ($adSchedule -and $adSchedule.enabled) {
+    $adScript = Join-Path $SCRIPT_DIR "ad_inject.py"
+    if (Test-Path $adScript) {
+        Write-Host ">> Ad injector starting (interval=$($adSchedule.interval)s)" -ForegroundColor Yellow
+        $adProcess = Start-Process -FilePath "python" -ArgumentList "`"$adScript`" $StreamName" -PassThru -WindowStyle Normal
+    }
+}
+
 # --- Run FFmpeg (blocking) ---
 # This process stays alive until MediaMTX terminates it (OBS disconnects)
-& ffmpeg @ffmpegArgs
+try {
+    & ffmpeg @ffmpegArgs
+} finally {
+    # Kill ad injector when FFmpeg exits (OBS disconnects)
+    if ($adProcess -and !$adProcess.HasExited) {
+        Write-Host ">> Stopping ad injector" -ForegroundColor Yellow
+        Stop-Process -Id $adProcess.Id -Force -ErrorAction SilentlyContinue
+    }
+}
