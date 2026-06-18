@@ -20,8 +20,12 @@
         <!-- Live section -->
         <section id="live-section">
             <div class="tabs" id="tabs"></div>
-            <figure>
+            <figure id="live-figure" style="position:relative;">
                 <video id="video" controls autoplay muted></video>
+                <div id="live-ad-overlay" class="hidden">
+                    <span class="ad-badge">AD</span>
+                    <span id="ad-countdown"></span>
+                </div>
             </figure>
             <div id="status" class="status-bar loading">Loading streams...</div>
             <small id="info" class="stream-info"></small>
