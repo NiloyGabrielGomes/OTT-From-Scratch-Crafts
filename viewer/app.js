@@ -27,6 +27,12 @@ let vodCatalog = [];
 let adVideoUrl = null;
 var vodFigure = document.getElementById('vod-figure');
 
+// === Live ad overlay refs ===
+var liveAdOverlay  = document.getElementById('live-ad-overlay');
+var adCountdown    = document.getElementById('ad-countdown');
+var adEndTime      = null;
+var adCountdownTimer = null;
+
 // === Mode switching ===
 function switchMode(mode) {
     modeTabs.forEach(function(t) {
@@ -50,6 +56,30 @@ function switchMode(mode) {
 modeTabs.forEach(function(t) {
     t.addEventListener('click', function() { switchMode(t.dataset.mode); });
 });
+
+// === Live ad overlay controls ===
+function showLiveAd(duration) {
+    liveAdOverlay.classList.remove('hidden');
+    adEndTime = Date.now() + (duration * 1000);
+    updateAdCountdown();
+    adCountdownTimer = setInterval(updateAdCountdown, 1000);
+}
+
+function hideLiveAd() {
+    liveAdOverlay.classList.add('hidden');
+    adEndTime = null;
+    if (adCountdownTimer) {
+        clearInterval(adCountdownTimer);
+        adCountdownTimer = null;
+    }
+}
+
+function updateAdCountdown() {
+    if (!adEndTime) return;
+    var remaining = Math.max(0, Math.ceil((adEndTime - Date.now()) / 1000));
+    adCountdown.textContent = 'Ad ends in ' + remaining + 's';
+    if (remaining <= 0) hideLiveAd();
+}
 
 // === Live stream ===
 function setStatus(text, cls) {
@@ -83,12 +113,16 @@ function switchStream(name) {
         hls = new Hls({
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 6,
+            enableInterstitialPlayback: true,
+            interstitialAppendInPlace: true,
+            interstitialLiveLookAhead: 20,
         });
         hls.loadSource(url);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, function() {
             setStatus('LIVE', 'live');
+            console.log('[HLS] Manifest parsed. Interstitials manager:', hls.interstitialsManager);
             video.play().catch(function() {});
         });
 
@@ -102,6 +136,30 @@ function switchStream(name) {
         hls.on(Hls.Events.FRAG_LOADED, function() {
             setStatus('LIVE', 'live');
         });
+
+        // Interstitial (ad) events
+        hls.on(Hls.Events.INTERSTITIAL_STARTED, function(_, data) {
+            console.log('[HLS] INTERSTITIAL_STARTED', data);
+            var duration = data.event ? data.event.duration : 10;
+            showLiveAd(duration);
+            setStatus('Ad break', 'ad');
+        });
+
+        hls.on(Hls.Events.INTERSTITIAL_ENDED, function() {
+            console.log('[HLS] INTERSTITIAL_ENDED');
+            hideLiveAd();
+            setStatus('LIVE', 'live');
+        });
+
+        hls.on(Hls.Events.INTERSTITIAL_ASSET_STARTED, function(_, data) {
+            console.log('[HLS] INTERSTITIAL_ASSET_STARTED', data);
+            if (data.asset && data.asset.duration) {
+                adEndTime = Date.now() + (data.asset.duration * 1000);
+            }
+        });
+
+        // Debug: check if interstitials events exist
+        console.log('[HLS] Events available:', Object.keys(Hls.Events).filter(function(k) { return k.indexOf('INTERSTITIAL') >= 0; }));
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
@@ -147,7 +205,6 @@ async function initLive() {
 
 // === VOD ===
 var isAdPlaying = false;
-var adSkipTimer = null;
 
 function setVodStatus(text, cls) {
     vodStatus.textContent = text;
@@ -168,36 +225,8 @@ vodVideo.addEventListener('ratechange', function() {
     }
 });
 
-// Show skip button after 10 seconds
-function startAdSkipTimer() {
-    var skipBtn = document.getElementById('vod-skip');
-    if (skipBtn) skipBtn.remove();
-
-    skipBtn = document.createElement('button');
-    skipBtn.id = 'vod-skip';
-    skipBtn.className = 'outline';
-    skipBtn.textContent = 'Skip Ad';
-    skipBtn.style.cssText = 'position:absolute;bottom:4rem;right:1rem;z-index:10;display:none;';
-    vodPlayerArea.appendChild(skipBtn);
-
-    adSkipTimer = setTimeout(function() {
-        skipBtn.style.display = 'inline-block';
-    }, 10000);
-
-    skipBtn.addEventListener('click', function() {
-        skipToContent();
-    });
-}
-
 function clearAdState() {
     isAdPlaying = false;
-    if (adSkipTimer) { clearTimeout(adSkipTimer); adSkipTimer = null; }
-    var skipBtn = document.getElementById('vod-skip');
-    if (skipBtn) skipBtn.remove();
-}
-
-function skipToContent() {
-    clearAdState();
     vodFigure.classList.remove('ad-mode');
     setVodStatus('Playing', 'vod');
     vodVideo.src = currentContentUrl;
@@ -236,7 +265,6 @@ function playVod(videoId) {
     setVodStatus('Ad - ' + Math.ceil(getAdDuration()) + 's remaining', 'ad');
     vodVideo.src = adVideoUrl;
     vodVideo.play().catch(function() {});
-    startAdSkipTimer();
 
     // Update countdown
     vodVideo.ontimeupdate = function() {
@@ -250,8 +278,7 @@ function playVod(videoId) {
 
     vodVideo.onended = function() {
         if (isAdPlaying) {
-            // Ad finished, play content
-            skipToContent();
+            clearAdState();
         }
     };
 }
